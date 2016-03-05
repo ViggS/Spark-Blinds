@@ -1,55 +1,62 @@
-/**
-
- *  Spark Core
-
- *
-
- *  Author: Justin Wurth
-
- *  Date: 2014-09-19
-
- */
-
 // a maximum of eight servo objects can be created 
+#include "particle-blinds.cpp"
 
-// Constants
-#define SERVO_PIN       A7  
-#define SWITCH_PIN      D0
-
+#include "particle-blinds.h" 
+ 
 Servo myservo;
-int state;
-int open=0;
-int closed=150;
 
-// Functions
-int setState(String command);
+int val;
 
-void setup(){
-  myservo.attach(A7);   
-  myservo.attach(SERVO_PIN); // attaches the servo on analog pin A7 to the servo object
-  Spark.function("setstate", setState);
-  Spark.variable("getstate", &state, INT);
-  state=myservo.read();
-  pinMode(SWITCH_PIN,  INPUT_PULLUP);
+int ledControl(String command);
+
+
+void setup() 
+{
+
+myservo.attach(A4);  // attaches the servo on analog pin A4 to the servo object 
+Particle.function("ledstate", ledControl);
+Particle.variable("checkStatus1", "off");
+
 }
 
-void loop(){
-  if(!digitalRead(SWITCH_PIN)){
-    delay(50);
-    state=(state)?open:closed; // Toggle between fully open and closed
-    myservo.write(state);
-    // TODO: Notify Smart things
-  }
-  while(!digitalRead(SWITCH_PIN));
+void loop()
+
+{
+    
 }
 
-int setState(String command){ 
-    state = command.toInt(); 
-    state = map (state, 0, 99, open, closed);
-    myservo.write(state);
-    return 1;
-}
+int ledControl(String command)
 
+
+{  //if and else will set on off functionality
+    if (command == "1") {   
+    myservo.attach(A4);
+    delay(500);
+    myservo.write(90); 
+    Particle.variable("checkStatus1", "on");
+    delay(2000);
+    myservo.detach();
+    
+  } else if(command == "0"){
+    myservo.attach(A4);
+    delay(500);
+    myservo.write(0);  
+    Particle.variable("checkStatus1", "off");
+    delay(2000);
+    myservo.detach();
+      }
+     
+    else{
+    myservo.attach(A4);
+    delay(500);
+    val = command.toInt(); //converts command to integer to be used for positional arrangement
+    val = map (val, 0, 99, 2, 170);
+    myservo.write(val);
+    Particle.variable("checkStatus1", "on");
+    delay(2000);
+    myservo.detach();
+    }
+}
 
 
 
