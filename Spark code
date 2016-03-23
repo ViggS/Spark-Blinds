@@ -20,19 +20,19 @@
 Servo myservo;
 
 int val;
-int pos=0; // Position closed by default
+int pos=0;
 int target;
 int servo1=A4;
 int servo2=A5;
-int ledControl(String command); // Is the command from the Device Handler
+int ledControl(String command);
 
 
 void setup() 
 {
 debug("1/4 Starting setup", pos);
     delay(500);
-myservo.attach(servo1);  // attaches the servo on analog pin A4 to the servo object 
-myservo.write(pos); // Send the postion with new created Pos variable
+myservo.attach(servo1); 
+myservo.write(pos);
     delay(500);
     myservo.detach();
 debug("2/4 Initialized position = %i", pos);
@@ -46,7 +46,6 @@ debug("4/4 Ending setup", pos);
 }
 
 
-// Log message to cloud, message is a printf-formatted string
 void debug(String message, int value) {
     char msg [50];
     sprintf(msg, message.c_str(), value);
@@ -62,24 +61,24 @@ void loop()
 }
 
 
-int ledControl(String command)  { // Take the command coming from the Device Handler
+int ledControl(String command)  {
     myservo.attach(servo1);
     delay(500);
-    val = command.toInt(); // Converts command to integer to be used for positional arrangement
+    val = command.toInt();
     val = map (val, 0, 100, 0, 180);
     
-    if(pos > val){ // Determine if target is inferior to position
+    if(pos > val){
     debug("1/4 Decrementing from position = %i", pos);
     debug("2/4 Decrementing to position = %i", val);
-    for (;pos >= val; pos -= 1){ // In that case, decrease position by 1 degree untill target is reached
-    myservo.write(pos); // Send the postion with new created State variable
+    for (;pos >= val; pos -= 1){
+    myservo.write(pos);
     delay(10);}}
-    else { // else is necessary to avoid a second positionning
-    if(pos < val){ // Determine if target is superior to position
+    else {
+    if(pos < val){ 
     debug("1/4 Incrementing from position = %i", pos);
     debug("2/4 Incrementing to position = %i", val);
-    for (; pos <= val; pos += 1){ // In that case, increase position by 1 degree untill target is reached
-    myservo.write(pos); // Send the postion with new created Pos variable
+    for (; pos <= val; pos += 1){ 
+    myservo.write(pos);
     delay(10);}}}
     
     debug("3/4 Position is now = %i", pos);
