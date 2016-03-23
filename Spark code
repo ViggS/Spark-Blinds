@@ -1,23 +1,59 @@
-// a maximum of eight servo objects can be created 
-#include "particle-blinds.cpp"
+// Servo control for Blind automation with SmartThing Platform
+// Needs matching Device Handler on SmartThing to work properly
+// A maximum of eight servo objects can be created
 
-#include "particle-blinds.h" 
- 
+// Based on jjhtpc
+// Modified by Francky77
+
+//
+//  Added:  Incremental servo positioning to slow down tilting
+//          Initialization of the blind's tilt to Close at Photon's startup
+//          Inserted servo variable to be used in the code for customization simplicity
+//          Debug messages
+//          Modified feedback message to Device Handler in Smartthings to have the Open / Close status based on blind's tilt threshold
+//  
+//  To do:  Sequential control of multiple servo 
+//          Local tilt control via potentiometer using analog.input
+//          Feedback blind's position back to Device Handler to have the cursor position right (if possible)
+
+
 Servo myservo;
 
 int val;
-
-int ledControl(String command);
+int pos=0; // Position closed by default
+int target;
+int servo1=A4;
+int servo2=A5;
+int ledControl(String command); // Is the command from the Device Handler
 
 
 void setup() 
 {
+debug("1/4 Starting setup", pos);
+    delay(500);
+myservo.attach(servo1);  // attaches the servo on analog pin A4 to the servo object 
+myservo.write(pos); // Send the postion with new created Pos variable
+    delay(500);
+    myservo.detach();
+debug("2/4 Initialized position = %i", pos);
 
-myservo.attach(A4);  // attaches the servo on analog pin A4 to the servo object 
 Particle.function("ledstate", ledControl);
 Particle.variable("checkStatus1", "off");
+    delay(500);
+debug("3/4 Initialized checkstatus1 to off", pos);
+debug("4/4 Ending setup", pos);
 
 }
+
+
+// Log message to cloud, message is a printf-formatted string
+void debug(String message, int value) {
+    char msg [50];
+    sprintf(msg, message.c_str(), value);
+    Particle.publish("DEBUG", msg);
+
+}
+
 
 void loop()
 
@@ -25,38 +61,40 @@ void loop()
     
 }
 
-int ledControl(String command)
 
-
-{  //if and else will set on off functionality
-    if (command == "1") {   
-    myservo.attach(A4);
+int ledControl(String command)  { // Take the command coming from the Device Handler
+    myservo.attach(servo1);
     delay(500);
-    myservo.write(90); 
-    Particle.variable("checkStatus1", "on");
-    delay(2000);
+    val = command.toInt(); // Converts command to integer to be used for positional arrangement
+    val = map (val, 0, 100, 0, 180);
+    
+    if(pos > val){ // Determine if target is inferior to position
+    debug("1/4 Decrementing from position = %i", pos);
+    debug("2/4 Decrementing to position = %i", val);
+    for (;pos >= val; pos -= 1){ // In that case, decrease position by 1 degree untill target is reached
+    myservo.write(pos); // Send the postion with new created State variable
+    delay(10);}}
+    else { // else is necessary to avoid a second positionning
+    if(pos < val){ // Determine if target is superior to position
+    debug("1/4 Incrementing from position = %i", pos);
+    debug("2/4 Incrementing to position = %i", val);
+    for (; pos <= val; pos += 1){ // In that case, increase position by 1 degree untill target is reached
+    myservo.write(pos); // Send the postion with new created Pos variable
+    delay(10);}}}
+    
+    debug("3/4 Position is now = %i", pos);
+    
+    delay(500);
     myservo.detach();
     
-  } else if(command == "0"){
-    myservo.attach(A4);
-    delay(500);
-    myservo.write(0);  
-    Particle.variable("checkStatus1", "off");
-    delay(2000);
-    myservo.detach();
-      }
-     
-    else{
-    myservo.attach(A4);
-    delay(500);
-    val = command.toInt(); //converts command to integer to be used for positional arrangement
-    val = map (val, 0, 99, 2, 170);
-    myservo.write(val);
+    if(pos >= 10 && pos <= 170){
     Particle.variable("checkStatus1", "on");
-    delay(2000);
-    myservo.detach();
-    }
-}
-
+    debug("4/4 Set Status to On", val);}
+    else{
+    Particle.variable("checkStatus1", "off");
+    debug("4/4 Set Status to Off", val);}
+        
+    
+                             }
 
 
