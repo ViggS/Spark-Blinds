@@ -3,9 +3,9 @@ Spark-Blinds
 
 Spark for smartthings window blinds
 
-This project will provide both the Smartthings device type and code for the Spark Core
+This project will provide both the Smartthings device type and code for the Partcile Photon (formerly Spark Core)
 
-This project will control an analog servo with both on off and positional settings
+This project will control an analog servo with both On Off and positional settings
 
 To use this code use the Smartthings ide to create a new device type entitled Spark Core Blinds
   Insert the Spark Core Blinds code into the device type code 
