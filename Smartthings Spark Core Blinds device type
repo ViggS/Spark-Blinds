@@ -1,100 +1,109 @@
 /**
-
  *  Spark Core
-
  *
-
- *  Author: Justin Wurth
-
- *  Date: 2014-09-19
-
+ *	Author: Justin Wurth / Date: 2014-09-19
+ *	Modification: Francky77 / Date 2016-03-23
+ *		Modification:	Open/Close/Opening/Closing icons and background colors
+ *		Added:			Inputs for future use
+ *						Status report when using slider
+ *	
  */
 
 preferences {
-  input("deviceId", "text", title: "Device ID")
-  input("token", "text", title: "Access Token")
-  input("openThresh", "text", title: "Open Threshold", defaultValue: 10, required: false, displayDuringSetup: true)
-  input("open", "text", title: "Open", defaultValue: 99, required: false, displayDuringSetup: true)
-  input("closed", "text", title: "Closed", defaultValue: 20, required: false, displayDuringSetup: true)
+	input("deviceId", "text", title: "Device ID")
+	input("token", "text", title: "Access Token")
+	input("open", "text", title: "Open", defaultValue: 99, required: false, displayDuringSetup: true)
+	input("closedup", "text", title: "Closed Up", defaultValue: 20, required: false, displayDuringSetup: true)
+	input("closeddown", "text", title: "Closed Down", defaultValue: 20, required: false, displayDuringSetup: true)
 }
-// for the UI
+
+	// for the UI
+
 metadata {
-  // Automatically generated. Make future change here.
-  definition (name: "Spark Core Blinds", author: "Garrett Hawes") {
-    capability "Switch Level"
-    capability "Switch"
-    capability "Refresh"
-    capability "Polling"
+	// Automatically generated. Make future change here.
+	definition (name: "Spark Core Blinds", author: "justinwurth@gmail.com") {
+		capability "Switch Level"
+		capability "Switch"
+		capability "Refresh"
+		capability "Polling"
+        
+		attribute "open", "string"
+		attribute "closed", "string"
+    }
 
-    attribute "openThresh", "string"
-    attribute "open", "string"
-    attribute "closed", "string"
 
-    command "setLevel"
-    command "getLevel"
-  }
-  // tile definitions
-  tiles {
-    standardTile("switch", "device.switch", width: 2, height: 2, canChangeIcon: false) {
-      state "off", label:'closed', action:"switch.on", icon:"st.switches.switch.on", backgroundColor:"#79b821", nextState:"opening"
-      state "on", label:'open', action:"switch.off", icon:"st.doors.garage.garage-open", backgroundColor:"#ffa81e", nextState:"closing"
-      state "opening", label:'${name}', icon:"st.doors.garage.garage-opening", backgroundColor:"#ffe71e"
-      state "closing", label:'${name}', icon:"st.doors.garage.garage-closing", backgroundColor:"#ffe71e"
-    }
-    standardTile("refresh", "device.switch", inactiveLabel: false, decoration: "flat") {
-      state "default", label:"", action:"refresh.refresh", icon:"st.secondary.refresh"
-    }
-    controlTile("levelSliderControl", "device.level", "slider", height: 1, width: 3, inactiveLabel: false) {
-      state "level", action:"switch level.setLevel"
-    }
-    main(["switch"])
-    details(["switch", "refresh", "levelSliderControl"])
-  }
+	// Tile definitions
+
+    tiles {
+		standardTile("switch", "device.switch", width: 2, height: 2, canChangeIcon: false) {
+			state "on", label:'opened', action:"switch.off", icon:"st.doors.garage.garage-open", backgroundColor:"#79b821", nextState:"closing"
+			state "off", label:'closed', action:"switch.on", icon:"st.doors.garage.garage-closed", backgroundColor:"#808080", nextState:"opening"
+			state "closing", label:'${name}', icon:"st.doors.garage.garage-closing", backgroundColor:"#79b821"
+			state "opening", label:'${name}', icon:"st.doors.garage.garage-opening", backgroundColor:"#ffffff"
+		}
+		
+		standardTile("refresh", "device.switch", inactiveLabel: false, decoration: "flat") {
+			state "default", label:"", action:"refresh.refresh", icon:"st.secondary.refresh"
+		}
+		controlTile("levelSliderControl", "device.level", "slider", height: 1, width: 3, inactiveLabel: false) {
+			state "level", action:"switch level.setLevel"
+		}
+		standardTile("refresh", "device.refresh", inactiveLabel: false, decoration: "flat") {
+			state "default", action:"refresh.refresh", icon: "st.secondary.refresh"
+        	}
+
+		main(["switch"])
+		details(["switch", "refresh",  "levelSliderControl"])
+	}
 }
+
 
 def parse(String description) {
-  log.error "This device does not support incoming events"
-  return null
+	log.error "This device does not support incoming events"
+	return null
 }
 
-def on() { 
-  put'20'
-  sendEvent(name: 'switch', value: 'on')
+def on() {
+	put '50'
+	sendEvent(name: "switch", value: "on" )
 }
+
 def off() {
-  put'99'
-  sendEvent(name: 'switch', value: 'off')
-}
-def setLevel(val) {
-  def level = Math.min(val as Integer, 99)
-  if(level>80){
-    sendEvent(name: 'switch', value: 'off')
-  }
-  else{
-    sendEvent(name: 'switch', value: 'on')
-  }
-  put val
+	put '0'
+	sendEvent(name: "switch", value: "off" )
 }
 
-def getLevel(){ //TODO
+def setLevel(value) {
+	def level = Math.min(value as Integer, 99)
+	put value
+	checkStatus()
 }
 
-def poll() { //TODO
+def poll() {
+	log.debug "Executing 'poll'"
+	checkStatus ()	
 }
 
-def refresh() { //TODO
+def refresh() {
+	log.debug "executing 'refresh'"
+	checkStatus()
+
+}
+def checkStatus(){
+	httpGet(uri: "https://api.particle.io/v1/devices/${deviceId}/checkStatus1?access_token=${token}",
+    	contentType: 'application/json',)
+	{resp ->           
+		log.debug "resp data: ${resp.data}"
+		log.debug "result: ${resp.data.result}"
+		sendEvent(name: "switch", value: "${resp.data.result}" )
+	}
 }
 
-private put(level) {
-//Spark Core API Call
-  sendEvent(name:"level",value:level)
-  sendEvent(name:"switch.setLevel",value:level) 
-  httpPost(
-    uri: "https://api.spark.io/v1/devices/${deviceId}/setstate",
-    body: [access_token: token, command: level],
-  ) {response -> log.debug (response.data)}
+private put(led) {
+	//Spark Core API Call
+	httpPost(
+		uri: "https://api.particle.io/v1/devices/${deviceId}/ledstate",
+		body: [access_token: token, command: led],  
+		) {response -> log.debug (response.data)}
 }
-
-
-
 
