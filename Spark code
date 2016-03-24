@@ -11,80 +11,93 @@
 //          Inserted servo variable to be used in the code for customization simplicity
 //          Debug messages
 //          Modified feedback message to Device Handler in Smartthings to have the Open / Close status based on blind's tilt threshold
+//          Sequential control of multiple servo 
 //  
-//  To do:  Sequential control of multiple servo 
-//          Local tilt control via potentiometer using analog.input
+//  To do:  Local tilt control via potentiometer using analog.input
 //          Feedback blind's position back to Device Handler to have the cursor position right (if possible)
 
 
-Servo myservo;
+Servo servo1, servo2, servo3, servo4, servo5;
 
 int val;
-int pos=0;
+int pos=180; // Position closed by default
 int target;
-int servo1=A4;
-int servo2=A5;
-int ledControl(String command);
+int blind1=A4;
+int blind2=A5;
+int blind3=WKP;
+int ledControl(String command); // Is the command from the Device Handler
 
 
 void setup() 
 {
 debug("1/4 Starting setup", pos);
     delay(500);
-myservo.attach(servo1); 
-myservo.write(pos);
+servo1.attach(blind1);  // Attaches the servo on the analog pin to the servo object
+servo2.attach(blind2);
+servo3.attach(blind3);
+servo1.write(pos); // Initialize Servo position
+servo2.write(pos);
+servo3.write(pos);
     delay(500);
-    myservo.detach();
+    servo1.detach();
+    servo2.detach();
+    servo3.detach();
 debug("2/4 Initialized position = %i", pos);
 
 Particle.function("ledstate", ledControl);
-Particle.variable("checkStatus1", "off");
+Particle.variable("checkStatus1", "off");  // Tells Device Handler Blind is now closed (off)
     delay(500);
-debug("3/4 Initialized checkstatus1 to off", pos);
+debug("3/4 Initialized checkstatus1 to off", pos);  
 debug("4/4 Ending setup", pos);
-
 }
 
 
+// Log message to cloud, message is a printf-formatted string
 void debug(String message, int value) {
     char msg [50];
     sprintf(msg, message.c_str(), value);
     Particle.publish("DEBUG", msg);
-
 }
 
 
 void loop()
 
 {
-    
 }
 
 
-int ledControl(String command)  {
-    myservo.attach(servo1);
+int ledControl(String command)  { // Take the command coming from the Device Handler
+    servo1.attach(blind1);
+    servo2.attach(blind2);
+    servo3.attach(blind3);
     delay(500);
-    val = command.toInt();
+    val = command.toInt(); // Converts command to integer to be used for positional arrangement
     val = map (val, 0, 100, 0, 180);
     
-    if(pos > val){
+    if(pos > val){ // Determine if target is inferior to position
     debug("1/4 Decrementing from position = %i", pos);
     debug("2/4 Decrementing to position = %i", val);
-    for (;pos >= val; pos -= 1){
-    myservo.write(pos);
+    for (;pos >= val; pos -= 1){ // In that case, decrease position by 1 degree untill target is reached
+    servo1.write(pos); // Send the postion with new created State variable
+    servo2.write(pos);
+    servo3.write(pos);
     delay(10);}}
-    else {
-    if(pos < val){ 
+    else { // else is necessary to avoid a second positionning
+    if(pos < val){ // Determine if target is superior to position
     debug("1/4 Incrementing from position = %i", pos);
     debug("2/4 Incrementing to position = %i", val);
-    for (; pos <= val; pos += 1){ 
-    myservo.write(pos);
+    for (; pos <= val; pos += 1){ // In that case, increase position by 1 degree untill target is reached
+    servo1.write(pos); // Send the postion with new created Pos variable
+    servo2.write(pos);
+    servo3.write(pos);
     delay(10);}}}
     
     debug("3/4 Position is now = %i", pos);
     
     delay(500);
-    myservo.detach();
+    servo1.detach();
+    servo2.detach();
+    servo3.detach();
     
     if(pos >= 10 && pos <= 170){
     Particle.variable("checkStatus1", "on");
@@ -95,5 +108,7 @@ int ledControl(String command)  {
         
     
                              }
+
+
 
 
