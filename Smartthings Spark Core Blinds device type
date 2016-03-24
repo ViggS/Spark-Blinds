@@ -4,8 +4,9 @@
  *	Author: Justin Wurth / Date: 2014-09-19
  *	Modification: Francky77 / Date 2016-03-23
  *		Modification:	Open/Close/Opening/Closing icons and background colors
- *		Added:		Inputs for future use
- *				Status report when using slider
+ *		Added:			Inputs for future use
+ *						Status report when using slider
+ *						
  *	
  */
 
@@ -28,7 +29,8 @@ metadata {
 		capability "Polling"
         
 		attribute "open", "string"
-		attribute "closed", "string"
+		attribute "closeddown", "string"
+        attribute "closedup", "string"
     }
 
 
@@ -64,12 +66,12 @@ def parse(String description) {
 }
 
 def on() {
-	put '50'
+	put open
 	sendEvent(name: "switch", value: "on" )
 }
 
 def off() {
-	put '0'
+	put closeddown
 	sendEvent(name: "switch", value: "off" )
 }
 
