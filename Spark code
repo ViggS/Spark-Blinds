@@ -3,8 +3,8 @@
 // A maximum of eight servo objects can be created
 
 // Based on jjhtpc
-// Modified by Francky77
 
+// Modified by Francky77:
 //
 //  Added:  Incremental servo positioning to slow down tilting
 //          Initialization of the blind's tilt to Close at Photon's startup
