@@ -130,7 +130,7 @@ void readlux()
 //    debug("Vout = %f", Vout);
 //    delay (500);
     lux = 500 / (1 * ((3.3 - Vout) / Vout));
-    Particle.variable("checkStatus2", lux);
+    Particle.variable("checkLux", lux);
 //    debug("Lux = %i", lux);
 //    delay (500);
     delay (2000);
