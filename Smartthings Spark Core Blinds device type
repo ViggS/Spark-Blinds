@@ -26,18 +26,21 @@ metadata {
 	definition (name: "Spark Core Blinds", author: "justinwurth@gmail.com") {
 		capability "Switch Level"
 		capability "Switch"
+        capability "IlluminanceMeasurement"
 		capability "Refresh"
 		capability "Polling"
         
 		attribute "open", "string"
 		attribute "closeddown", "string"
         attribute "closedup", "string"
+        attribute "illuminance", "number"
+        attribute "position", "number"
     }
 
 
 	// Tile definitions
 
-    tiles {
+tiles {
 		standardTile("switch", "device.switch", width: 2, height: 2, canChangeIcon: false) {
 			state "on", label:'opened', action:"switch.off", icon:"st.doors.garage.garage-open", backgroundColor:"#79b821", nextState:"closing"
 			state "off", label:'closed', action:"switch.on", icon:"st.doors.garage.garage-closed", backgroundColor:"#808080", nextState:"opening"
@@ -48,16 +51,22 @@ metadata {
 		standardTile("refresh", "device.switch", inactiveLabel: false, decoration: "flat") {
 			state "default", label:"", action:"refresh.refresh", icon:"st.secondary.refresh"
 		}
-		controlTile("levelSliderControl", "device.level", "slider", height: 1, width: 3, inactiveLabel: false) {
+        
+		controlTile("levelSliderControl", "device.level", "slider", height: 1, width: 2, inactiveLabel: false) {
 			state "level", action:"switch level.setLevel"
 		}
-		standardTile("refresh", "device.refresh", inactiveLabel: false, decoration: "flat") {
-			state "default", action:"refresh.refresh", icon: "st.secondary.refresh"
-        	}
+		
+        valueTile("illuminance", "device.illuminance", decoration: "flat", width: 1, height: 1) {
+        	state "illuminance", label:'${currentValue}lux'
+        }
+        
+        valueTile("position", "device.position", decoration: "flat", width: 1, height: 1) {
+        	state "position", label:'${currentValue}°'
+        }
 
 		main(["switch"])
-		details(["switch", "refresh",  "levelSliderControl"])
-	}
+		details(["switch", "illuminance", "refresh",  "levelSliderControl", "position"])
+		}
 }
 
 
@@ -69,17 +78,20 @@ def parse(String description) {
 def on() {
 	put open
 	sendEvent(name: "switch", value: "on" )
+	sendEvent(name: "levelSliderControl", value: open)
 }
 
 def off() {
 	put closeddown
 	sendEvent(name: "switch", value: "off" )
+    sendEvent(name: "levelSliderControl", value: 100)
 }
 
 def setLevel(value) {
 	def level = Math.min(value as Integer, 99)
 	put value
 	checkStatus()
+	sendEvent(name: "levelSliderControl", value: value)
 }
 
 def poll() {
@@ -90,15 +102,31 @@ def poll() {
 def refresh() {
 	log.debug "executing 'refresh'"
 	checkStatus()
-
 }
+
 def checkStatus(){
-	httpGet(uri: "https://api.particle.io/v1/devices/${deviceId}/checkStatus1?access_token=${token}",
+	httpGet(uri: "https://api.particle.io/v1/devices/${deviceId}/checkStatus?access_token=${token}",
     	contentType: 'application/json',)
 	{resp ->           
 		log.debug "resp data: ${resp.data}"
 		log.debug "result: ${resp.data.result}"
 		sendEvent(name: "switch", value: "${resp.data.result}" )
+	}
+    
+		httpGet(uri: "https://api.particle.io/v1/devices/${deviceId}/checkPos?access_token=${token}",
+    	contentType: 'application/json',)
+	{resp ->           
+		log.debug "resp data: ${resp.data}"
+		log.debug "result: ${resp.data.result}"
+		sendEvent(name: "position", value: "${resp.data.result}" )
+	}
+    
+    	httpGet(uri: "https://api.particle.io/v1/devices/${deviceId}/checkLux?access_token=${token}",
+    	contentType: 'application/json',)
+	{resp ->           
+		log.debug "resp data: ${resp.data}"
+		log.debug "result: ${resp.data.result}"
+		sendEvent(name: "illuminance", value: "${resp.data.result}" )
 	}
 }
 
@@ -109,4 +137,5 @@ private put(led) {
 		body: [access_token: token, command: led],  
 		) {response -> log.debug (response.data)}
 }
+
 
