@@ -43,8 +43,8 @@ int difference;
 // Luminosity Sensor, Warning, Vcc must me 3.3v not 5v!
 int CdS=A1;
 int light;
-float Vout; // =3.3;
-int lux;
+float Vout;
+float lux;
 
 // Command from Device Handler
 int ledControl(String command);
@@ -182,7 +182,7 @@ void update()
     Particle.variable("checkStatus", "off");
     debug("Update Status to Off", val);}
     
-    Particle.variable("checkPox", pos);
+    Particle.variable("checkPos", pos);
     debug("Update Position to %i", pos);
     
     Particle.variable("checkLux", lux);
