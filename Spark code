@@ -49,6 +49,13 @@ float lux;
 // Command from Device Handler
 int ledControl(String command);
 
+int rssiData = -100;
+int rssiTimer = 0;
+const int rssiUpdate = 10; //how often to update the rssi value in seconds
+const int loopDelay = 1000; //time to wait between loop() runs in ms (1000ms = 1 second)
+
+String webhookName = "";
+
 
 void setup() 
 {
@@ -67,6 +74,9 @@ light = analogRead(CdS);
 Particle.variable("checkLux", lux);
 debug("Setup: Light= %i", light);
 
+// setup the rssi WiFi signal strength variable
+Particle.variable("rssi", &rssiData, INT);
+
 
 // Initialize Servo Position
 servo1.attach(blind1);  // Attaches the servo on the analog pin to the servo object
@@ -82,11 +92,29 @@ servo3.write(pos);
 Particle.variable("checkPos", pos);
 debug("Setup: Initialized position = %i", pos);
 
-// Initialize Blind position back to ST
+// Declare funtion ledstate, data from ST will trigger ledControl()
 Particle.function("ledstate", ledControl);
+
+// Initialize Blind position back to ST
 Particle.variable("checkStatus", "off");  // Tells Device Handler Blind is now closed (off)
     delay(500);
 debug("Setup: Initialized checkstatus1 to off", pos);  
+
+//added
+  String devID = Particle.deviceID();
+  webhookName = "dev" + devID.substring(18);
+  
+  // catch any response from SmartThings for the webhook
+  String hookResponse = "hook-response/" + webhookName;
+ // Particle.subscribe(hookResponse, gotResponse, MY_DEVICES);
+  
+  // tell SparkThings we need the Config Data
+ //  getConfigData();
+  
+  // setup the rssi WiFi signal strength variable
+  Particle.variable("rssi", &rssiData, INT);
+  
+  Serial.begin(9600);
 
 
 // End Setup
@@ -104,7 +132,7 @@ void debug(String message, int value) {
 
 void loop()
 {
-    delay(1000);
+    // delay(1000);
     newpotValue = analogRead(pot)/16;
     difference = abs(potValue-newpotValue);
     
@@ -117,6 +145,9 @@ void loop()
         
 // Lumonisity read
     readlux();
+
+// Rssi read    
+    updateRssi(); 
     
 }
 
@@ -131,13 +162,13 @@ void readlux()
 //    delay (500);
     lux = 500 / (1 * ((3.3 - Vout) / Vout));
     Particle.variable("checkLux", lux);
-//    debug("Lux = %i", lux);
-//    delay (500);
+// debug("Lux = %i", lux);
+// delay (500);
     delay (2000);
 }
 
 
-void move()
+int move()
 {
     servo1.attach(blind1);
     servo2.attach(blind2, 500, 2500);
@@ -146,41 +177,45 @@ void move()
     potValue2 = map (potValue, 0, 256, 0, 180);
     
     if(pos > potValue2){ // Determine if target is inferior to position
-    debug("1/4 Decrementing from position = %i", pos);
-    debug("2/4 Decrementing to position = %i", potValue2);
-    for (;pos >= potValue2; pos -= 1){ // In that case, decrease position by 1 degree untill target is reached
-    servo1.write(pos); // Send the postion with new created State variable
-    servo2.write(pos);
-    servo3.write(pos);
-    delay(10);}}
+        debug("1/4 Decrementing from position = %i", pos);
+        debug("2/4 Decrementing to position = %i", potValue2);
+            for (;pos >= potValue2; pos -= 1){ // In that case, decrease position by 1 degree untill target is reached
+            servo1.write(pos); // Send the postion with new created State variable
+            servo2.write(pos);
+            servo3.write(pos);
+            delay(10);}
+        debug("3/4 Position is now = %i", pos);
+        servoDetach();
+        update ();
+        return 1;
+            }
+    
     else { // else is necessary to avoid a second positionning
+    
     if(pos < potValue2){ // Determine if target is superior to position
-    debug("1/4 Incrementing from position = %i", pos);
-    debug("2/4 Incrementing to position = %i", potValue2);
-    for (; pos <= potValue2; pos += 1){ // In that case, increase position by 1 degree untill target is reached
-    servo1.write(pos); // Send the postion with new created Pos variable
-    servo2.write(pos);
-    servo3.write(pos);
-    delay(10);}}}
-    
-    debug("3/4 Position is now = %i", pos);
-    
-    delay(500);
-    servo1.detach();
-    servo2.detach();
-    servo3.detach();
-    update ();
+        debug("1/4 Incrementing from position = %i", pos);
+        debug("2/4 Incrementing to position = %i", potValue2);
+            for (; pos <= potValue2; pos += 1){ // In that case, increase position by 1 degree untill target is reached
+            servo1.write(pos); // Send the postion with new created Pos variable
+            servo2.write(pos);
+            servo3.write(pos);
+            delay(10);}}
+        debug("3/4 Position is now = %i", pos);
+        servoDetach();
+        update ();
+        return 1;
+            }
 }
 
 
 void update()
 {
     if(pos >= 10 && pos <= 170){
-    Particle.variable("checkStatus", "on");
-    debug("Update Status to On", val);}
+        Particle.variable("checkStatus", "on");
+        debug("Update Status to On", val);}
     else{
-    Particle.variable("checkStatus", "off");
-    debug("Update Status to Off", val);}
+        Particle.variable("checkStatus", "off");
+        debug("Update Status to Off", val);}
     
     Particle.variable("checkPos", pos);
     debug("Update Position to %i", pos);
@@ -195,40 +230,58 @@ int ledControl(String command)  { // Take the command coming from the Device Han
     servo1.attach(blind1);
     servo2.attach(blind2, 500, 2500);
     servo3.attach(blind3);
-    delay(500);
+    delay(10);
     val = command.toInt(); // Converts command to integer to be used for positional arrangement
     val = map (val, 0, 100, 0, 180);
     
     if(pos > val){ // Determine if target is inferior to position
-    debug("1/4 Decrementing from position = %i", pos);
-    debug("2/4 Decrementing to position = %i", val);
-    for (;pos >= val; pos -= 1){ // In that case, decrease position by 1 degree untill target is reached
-    servo1.write(pos); // Send the postion with new created State variable
-    servo2.write(pos);
-    servo3.write(pos);
-    delay(10);}}
+        debug("1/4 Decrementing from position = %i", pos);
+        debug("2/4 Decrementing to position = %i", val);
+        for (;pos >= val; pos -= 1){ // In that case, decrease position by 1 degree untill target is reached
+            servo1.write(pos); // Send the postion with new created State variable
+            servo2.write(pos);
+            servo3.write(pos);
+            delay(10);}
+        debug("3/4 Position is now = %i", pos);
+        servoDetach();
+        update();
+        return 1;
+            }
+    
     else { // else is necessary to avoid a second positionning
+    
     if(pos < val){ // Determine if target is superior to position
-    debug("1/4 Incrementing from position = %i", pos);
-    debug("2/4 Incrementing to position = %i", val);
-    for (; pos <= val; pos += 1){ // In that case, increase position by 1 degree untill target is reached
-    servo1.write(pos); // Send the postion with new created Pos variable
-    servo2.write(pos);
-    servo3.write(pos);
-    delay(10);}}}
-    
-    debug("3/4 Position is now = %i", pos);
-    
-    delay(500);
+        debug("1/4 Incrementing from position = %i", pos);
+        debug("2/4 Incrementing to position = %i", val);
+        for (; pos <= val; pos += 1){ // In that case, increase position by 1 degree untill target is reached
+            servo1.write(pos); // Send the postion with new created Pos variable
+            servo2.write(pos);
+            servo3.write(pos);
+            delay(10);}}
+        debug("3/4 Position is now = %i", pos);
+        servoDetach();
+        update();
+        return 1;
+            }
+}
+
+void servoDetach()  {
     servo1.detach();
     servo2.detach();
     servo3.detach();
-    update();
 }
-    
 
+void updateRssi() {
+    if (rssiTimer > 0) {
+        rssiTimer -= loopDelay;  
+    }
+    else {
+        rssiTimer = rssiUpdate * 1000;
+        rssiData = WiFi.RSSI();
+        Serial.print("RSSI: ");
+        Serial.println(rssiData);
+        debug("RSSI is now = %i", rssiData);
+    }
 
-
-
-
+}
 
