@@ -3,29 +3,33 @@
  *
  *	Author: Justin Wurth / Date: 2014-09-19
  *
- *	Modification: Francky77 / Date 2016-03-23:
+ *	Modification: Francky77 / Date 2016-04-01:
  *		Modification:	Open/Close/Opening/Closing icons and background colors
- *		Added:			Inputs for future use
- *					Status report when using slider
+ *		Added:			Update Status when using slider
+ *						Attribute variable for Open / Close
+ *						Update Status on Open / Close
+ *						Lux sensor
  *						
  *	
  */
 
+	// Variables
+
 preferences {
-	input("deviceId", "text", title: "Device ID")
-	input("token", "text", title: "Access Token")
-	input("open", "text", title: "Open", defaultValue: 99, required: false, displayDuringSetup: true)
-	input("closedup", "text", title: "Closed Up", defaultValue: 20, required: false, displayDuringSetup: true)
-	input("closeddown", "text", title: "Closed Down", defaultValue: 20, required: false, displayDuringSetup: true)
+	input("deviceId", "text", title: "Photon's Device ID") 
+	input("token", "text", title: "Photon's Access Token")
+	input("open", "text", title: "Open", defaultValue: 50, required: false, displayDuringSetup: true)
+	input("closedup", "text", title: "Closed Up", defaultValue: 0, required: false, displayDuringSetup: true)
+	input("closeddown", "text", title: "Closed Down", defaultValue: 100, required: false, displayDuringSetup: true)
 }
 
-	// for the UI
+	// For the UI
 
 metadata {
-	// Automatically generated. Make future change here.
 	definition (name: "Spark Core Blinds", author: "justinwurth@gmail.com") {
 		capability "Switch Level"
 		capability "Switch"
+    //  capabiility "windowShade" to do instead of Switch level
         capability "IlluminanceMeasurement"
 		capability "Refresh"
 		capability "Polling"
@@ -77,14 +81,16 @@ def parse(String description) {
 
 def on() {
 	put open
+    checkStatus()
 	sendEvent(name: "switch", value: "on" )
 	sendEvent(name: "levelSliderControl", value: open)
 }
 
 def off() {
 	put closeddown
+    checkStatus()
 	sendEvent(name: "switch", value: "off" )
-    sendEvent(name: "levelSliderControl", value: 100)
+    sendEvent(name: "levelSliderControl", value: closeddown)
 }
 
 def setLevel(value) {
@@ -100,7 +106,7 @@ def poll() {
 }
 
 def refresh() {
-	log.debug "executing 'refresh'"
+	log.debug "Executing 'refresh'"
 	checkStatus()
 }
 
@@ -113,7 +119,7 @@ def checkStatus(){
 		sendEvent(name: "switch", value: "${resp.data.result}" )
 	}
     
-		httpGet(uri: "https://api.particle.io/v1/devices/${deviceId}/checkPos?access_token=${token}",
+	httpGet(uri: "https://api.particle.io/v1/devices/${deviceId}/checkPos?access_token=${token}",
     	contentType: 'application/json',)
 	{resp ->           
 		log.debug "resp data: ${resp.data}"
@@ -121,7 +127,7 @@ def checkStatus(){
 		sendEvent(name: "position", value: "${resp.data.result}" )
 	}
     
-    	httpGet(uri: "https://api.particle.io/v1/devices/${deviceId}/checkLux?access_token=${token}",
+    httpGet(uri: "https://api.particle.io/v1/devices/${deviceId}/checkLux?access_token=${token}",
     	contentType: 'application/json',)
 	{resp ->           
 		log.debug "resp data: ${resp.data}"
