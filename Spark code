@@ -43,8 +43,8 @@ int difference;
 // Luminosity Sensor, Warning, Vcc must me 3.3v not 5v!
 int CdS=A1;
 int light;
-float Vout;
-float lux;
+double Vout;
+double lux;
 
 // Command from Device Handler
 int ledControl(String command);
