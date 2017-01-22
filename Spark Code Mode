@@ -1,0 +1,325 @@
+// Servo control for Blind automation with SmartThing Platform
+// Needs matching Device Handler on SmartThing to work properly
+// A maximum of eight servo objects can be created
+
+// Based on jjhtpc
+
+// Modified by Francky77:
+//
+//  Added:  Incremental servo positioning to slow down tilting
+//          Initialization of the blind's tilt to Close at Photon's startup
+//          Inserted servo variable to be used in the code for customization simplicity
+//          Debug messages
+//          Modified feedback message to Device Handler in Smartthings to have the Open / Close status based on blind's tilt threshold
+//          Sequential control of multiple servo 
+//          Local tilt control via potentiometer using analog.input
+//          Add lux sensor
+//  
+//  To do:  Feedback blind's position back to Device Handler to have the cursor position right (if possible)
+//          Create an array of Pins for Servos
+//          Fix the equation returning Lux value, seems wrong
+//          
+
+// Define servos
+Servo servo1, servo2, servo3, servo4, servo5;
+
+// Servo motor variable
+int val;
+int pos=180; // Position closed by default
+int target;
+
+// Servo motors
+int blind1=A4; // New Hitec Servo
+int blind2=A5; 
+int blind3=WKP;
+int blind4=RX;
+int blind5=TX;
+
+/**
+// Potentiometer, Warning, Vcc must me 3.3v not 5v!
+int pot=A0;
+int potValue;
+int potValue2;
+int newpotValue;
+int difference;
+**
+/**
+// Luminosity Sensor, Warning, Vcc must me 3.3v not 5v!
+int CdS=A1;
+int light;
+double Vout;
+double lux;
+**/
+
+// Command from Device Handler
+int ledControl(String command);
+
+/**
+int rssiData = -100;
+int rssiTimer = 0;
+const int rssiUpdate = 10; //how often to update the rssi value in seconds
+const int loopDelay = 1000; //time to wait between loop() runs in ms (1000ms = 1 second)
+**/
+
+String webhookName = "";
+
+
+void setup() 
+{
+// Setup start
+debug("Setup: Starting setup", pos);
+    delay(500);
+
+/**
+// Initialize Potentiometer Input
+pinMode(pot, INPUT);
+potValue = analogRead(pot)/16;
+debug("Setup: potValue= %i", potValue);
+**/
+
+/**
+// Initialize Luminosity Sensor Input
+pinMode(CdS, INPUT);
+light = analogRead(CdS);
+Particle.variable("checkLux", lux);
+debug("Setup: Light= %i", light);
+**/
+/**
+// setup the rssi WiFi signal strength variable
+Particle.variable("rssi", &rssiData, INT);
+**/
+
+// Initialize Servo Position
+servo1.attach(blind1);  // Attaches the servo on the analog pin to the servo object
+servo2.attach(blind2);
+servo3.attach(blind3);
+servo4.attach(blind4);
+servo5.attach(blind5);
+servo1.write(pos); // Initialize Servo position
+servo2.write(pos);
+servo3.write(pos);
+servo4.write(pos);
+servo5.write(pos);
+    delay(500);
+    servo1.detach();
+    servo2.detach();
+    servo3.detach();
+	servo4.detach();
+	servo5.detach();
+Particle.variable("checkPos", pos);
+debug("Setup: Initialized position = %i", pos);
+
+// Declare funtion ledstate, data from ST will trigger ledControl()
+Particle.function("ledstate", ledControl);
+
+// Initialize Blind position back to ST
+Particle.variable("checkStatus", "off");  // Tells Device Handler Blind is now closed (off)
+    delay(500);
+debug("Setup: Initialized checkstatus1 to off", pos);  
+
+//added
+String devID = Particle.deviceID();
+webhookName = "dev" + devID.substring(18);
+  
+// catch any response from SmartThings for the webhook
+String hookResponse = "hook-response/" + webhookName;
+// Particle.subscribe(hookResponse, gotResponse, MY_DEVICES);
+  
+//tell SparkThings we need the Config Data
+//getConfigData();
+  
+//setup the rssi WiFi signal strength variable
+/**Particle.variable("rssi", &rssiData, INT);**/
+  
+Serial.begin(9600);
+
+
+// End Setup
+debug("Setup: Ending setup", pos);
+}
+
+
+// Log message to cloud, message is a printf-formatted string
+void debug(String message, int value) {
+    char msg [50];
+    sprintf(msg, message.c_str(), value);
+    Particle.publish("DEBUG", msg);
+}
+
+
+void loop()
+{
+    // delay(1000);
+    /**
+	newpotValue = analogRead(pot)/16;
+    difference = abs(potValue-newpotValue);
+    
+    if (difference>10){
+        potValue = analogRead(pot)/16;
+        debug("Difference is >10",difference);
+        move();
+        delay (2000);
+        }
+	**/
+/**       
+// Lumonisity read
+    readlux();
+
+// Rssi read    
+    updateRssi(); 
+**/
+}
+
+/**
+void readlux()
+{
+    light = analogRead(CdS);
+//    debug("light = %i", light);
+//    delay (500);
+    Vout = (light * 8.05e-4);
+//    debug("Vout = %f", Vout);
+//    delay (500);
+    lux = 500 / (1 * ((3.3 - Vout) / Vout));
+    Particle.variable("checkLux", lux);
+// debug("Lux = %i", lux);
+// delay (500);
+    delay (2000);
+}
+**/
+
+int move()
+{
+    servo1.attach(blind1);
+    servo2.attach(blind2, 500, 2500);
+    servo3.attach(blind3, 500, 2500);
+	servo4.attach(blind4, 500, 2500);
+	servo5.attach(blind5);
+    delay(500);
+    
+	/**
+	potValue2 = map (potValue, 0, 256, 0, 180);
+    
+	
+    if(pos > potValue2){ // Determine if target is inferior to position
+        debug("1/4 Decrementing from position = %i", pos);
+        debug("2/4 Decrementing to position = %i", potValue2);
+            for (;pos >= potValue2; pos -= 1){ // In that case, decrease position by 1 degree untill target is reached
+            servo1.write(pos); // Send the postion with new created State variable
+            servo2.write(pos);
+            servo3.write(pos);
+			servo4.write(pos);
+			servo5.write(pos);
+            delay(10);}
+        debug("3/4 Position is now = %i", pos);
+        servoDetach();
+        update ();
+        return 1;
+            }
+    
+    else { // else is necessary to avoid a second positionning
+    
+    if(pos < potValue2){ // Determine if target is superior to position
+        debug("1/4 Incrementing from position = %i", pos);
+        debug("2/4 Incrementing to position = %i", potValue2);
+            for (; pos <= potValue2; pos += 1){ // In that case, increase position by 1 degree untill target is reached
+            servo1.write(pos); // Send the postion with new created Pos variable
+            servo2.write(pos);
+            servo3.write(pos);
+			servo4.write(pos);
+			servo5.write(pos);
+            delay(10);}}
+        debug("3/4 Position is now = %i", pos);
+        servoDetach();
+        update ();
+        return 1;
+            }
+	**/
+}
+
+
+void update()
+{
+    if(pos >= 10 && pos <= 170){
+        Particle.variable("checkStatus", "on");
+        debug("Update Status to On", val);}
+    else{
+        Particle.variable("checkStatus", "off");
+        debug("Update Status to Off", val);}
+    
+    Particle.variable("checkPos", pos);
+    debug("Update Position to %i", pos);
+    /**
+    Particle.variable("checkLux", lux);
+    debug("Update Lux to %i", lux);
+	**/
+}
+
+
+
+int ledControl(String command)  { // Take the command coming from the Device Handler
+    servo1.attach(blind1);
+    servo2.attach(blind2, 500, 2500);
+    servo3.attach(blind3, 500, 2500);
+	servo4.attach(blind4, 500, 2500);
+	servo5.attach(blind5);
+    delay(10);
+    val = command.toInt(); // Converts command to integer to be used for positional arrangement
+    val = map (val, 0, 100, 0, 180);
+    
+    if(pos > val){ // Determine if target is inferior to position
+        debug("1/4 Decrementing from position = %i", pos);
+        debug("2/4 Decrementing to position = %i", val);
+        for (;pos >= val; pos -= 1){ // In that case, decrease position by 1 degree untill target is reached
+            servo1.write(pos); // Send the postion with new created State variable
+            servo2.write(pos);
+            servo3.write(pos);
+			servo4.write(pos);
+			servo5.write(pos);
+            delay(10);}
+        debug("3/4 Position is now = %i", pos);
+        servoDetach();
+        update();
+        return 1;
+            }
+    
+    else { // else is necessary to avoid a second positionning
+    
+    if(pos < val){ // Determine if target is superior to position
+        debug("1/4 Incrementing from position = %i", pos);
+        debug("2/4 Incrementing to position = %i", val);
+        for (; pos <= val; pos += 1){ // In that case, increase position by 1 degree untill target is reached
+            servo1.write(pos); // Send the postion with new created Pos variable
+            servo2.write(pos);
+            servo3.write(pos);
+			servo4.write(pos);
+			servo5.write(pos);
+            delay(10);}}
+        debug("3/4 Position is now = %i", pos);
+        servoDetach();
+        update();
+        return 1;
+            }
+}
+
+void servoDetach()  {
+    servo1.detach();
+    servo2.detach();
+    servo3.detach();
+	servo4.detach();
+	servo5.detach();
+}
+/**
+void updateRssi() {
+    if (rssiTimer > 0) {
+        rssiTimer -= loopDelay;  
+    }
+    else {
+        rssiTimer = rssiUpdate * 1000;
+        rssiData = WiFi.RSSI();
+        Serial.print("RSSI: ");
+        Serial.println(rssiData);
+        debug("RSSI is now = %i", rssiData);
+    }
+
+}
+**/
