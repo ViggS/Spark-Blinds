@@ -1,0 +1,147 @@
+/**
+ *  Spark Core
+ *
+ *	Author: Justin Wurth / Date: 2014-09-19
+ *
+ *	Modification: Francky77 / Date 2016-04-01:
+ *		Modification:	Open/Close/Opening/Closing icons and background colors
+ *		Added:			Update Status when using slider
+ *						Attribute variable for Open / Close
+ *						Update Status on Open / Close
+ *						Lux sensor
+ *						
+ *	
+ */
+
+	// Variables
+
+preferences {
+	input("deviceId", "text", title: "Photon's Device ID") 
+	input("token", "text", title: "Photon's Access Token")
+	input("open", "text", title: "Open", defaultValue: 50, required: false, displayDuringSetup: true)
+	input("closedup", "text", title: "Closed Up", defaultValue: 0, required: false, displayDuringSetup: true)
+	input("closeddown", "text", title: "Closed Down", defaultValue: 100, required: false, displayDuringSetup: true)
+}
+
+	// For the UI
+
+metadata {
+	definition (name: "Spark Core Blinds", author: "justinwurth@gmail.com") {
+		capability "Switch Level"
+		capability "Switch"
+    //  capability "windowShade" to do instead of Switch level
+    //  capability "IlluminanceMeasurement"
+		capability "Refresh"
+		capability "Polling"
+        
+		attribute "open", "string"
+		attribute "closeddown", "string"
+        attribute "closedup", "string"
+    //	attribute "illuminance", "number"
+        attribute "position", "number"
+    }
+
+
+	// Tile definitions
+
+tiles {
+		standardTile("switch", "device.switch", width: 2, height: 2, canChangeIcon: false) {
+			state "on", label:'opened', action:"switch.off", icon:"st.doors.garage.garage-open", backgroundColor:"#79b821", nextState:"closing"
+			state "off", label:'closed', action:"switch.on", icon:"st.doors.garage.garage-closed", backgroundColor:"#808080", nextState:"opening"
+			state "closing", label:'${name}', icon:"st.doors.garage.garage-closing", backgroundColor:"#79b821"
+			state "opening", label:'${name}', icon:"st.doors.garage.garage-opening", backgroundColor:"#ffffff"
+		}
+		
+		standardTile("refresh", "device.switch", inactiveLabel: false, decoration: "flat") {
+			state "default", label:"", action:"refresh.refresh", icon:"st.secondary.refresh"
+		}
+        
+		controlTile("levelSliderControl", "device.level", "slider", height: 1, width: 2, inactiveLabel: false) {
+			state "level", action:"switch level.setLevel"
+		}
+		
+        //valueTile("illuminance", "device.illuminance", decoration: "flat", width: 1, height: 1) {
+        //	state "illuminance", label:'${currentValue}lux'
+        //}
+        
+        valueTile("position", "device.position", decoration: "flat", width: 1, height: 1) {
+        	state "position", label:'${currentValue}�'
+        }
+
+		main(["switch"])
+		details(["switch", /**"illuminance",**/ "refresh",  "levelSliderControl", "position"])
+		}
+}
+
+
+def parse(String description) {
+	log.error "This device does not support incoming events"
+	return null
+}
+
+def on() {
+	put open
+    checkStatus()
+	sendEvent(name: "switch", value: "on" )
+	sendEvent(name: "levelSliderControl", value: open)
+}
+
+def off() {
+	put closeddown
+    checkStatus()
+	sendEvent(name: "switch", value: "off" )
+    sendEvent(name: "levelSliderControl", value: closeddown)
+}
+
+def setLevel(value) {
+	def level = Math.min(value as Integer, 99)
+	put value
+	checkStatus()
+	sendEvent(name: "levelSliderControl", value: value)
+}
+
+def poll() {
+	log.debug "Executing 'poll'"
+	checkStatus ()	
+}
+
+def refresh() {
+	log.debug "Executing 'refresh'"
+	checkStatus()
+}
+
+def checkStatus(){
+	httpGet(uri: "https://api.particle.io/v1/devices/${deviceId}/checkStatus?access_token=${token}",
+    	contentType: 'application/json',)
+	{resp ->           
+		log.debug "resp data: ${resp.data}"
+		log.debug "result: ${resp.data.result}"
+		sendEvent(name: "switch", value: "${resp.data.result}" )
+	}
+    
+	httpGet(uri: "https://api.particle.io/v1/devices/${deviceId}/checkPos?access_token=${token}",
+    	contentType: 'application/json',)
+	{resp ->           
+		log.debug "resp data: ${resp.data}"
+		log.debug "result: ${resp.data.result}"
+		sendEvent(name: "position", value: "${resp.data.result}" )
+	}
+    
+    /**httpGet(uri: "https://api.particle.io/v1/devices/${deviceId}/checkLux?access_token=${token}",
+    	contentType: 'application/json',)
+	{resp ->           
+		log.debug "resp data: ${resp.data}"
+		log.debug "result: ${resp.data.result}"
+		sendEvent(name: "illuminance", value: "${resp.data.result}" )
+	}**/
+}
+
+private put(led) {
+	//Spark Core API Call
+	httpPost(
+		uri: "https://api.particle.io/v1/devices/${deviceId}/ledstate",
+		body: [access_token: token, command: led],  
+		) {response -> log.debug (response.data)}
+}
+
+
