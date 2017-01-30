@@ -65,7 +65,7 @@ tiles {
         //}
         
         valueTile("position", "device.position", decoration: "flat", width: 1, height: 1) {
-        	state "position", label:'${currentValue}�'
+        	state "position", label:'${currentValue}°'
         }
 
 		main(["switch"])
